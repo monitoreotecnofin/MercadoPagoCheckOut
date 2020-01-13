@@ -1,8 +1,12 @@
-﻿
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Nop.Core;
 using Nop.Services.Localization;
 using Nop.Web.Framework.Components;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace Nop.Plugin.Payments.MercadoPago.Components
 {
@@ -11,7 +15,7 @@ namespace Nop.Plugin.Payments.MercadoPago.Components
     {
         #region Fields
         private readonly ILocalizationService _localizationService;
-        private readonly IWorkContext _workContext;
+        private readonly IWorkContext _workContext;        
         #endregion
 
         #region Ctor
@@ -20,7 +24,7 @@ namespace Nop.Plugin.Payments.MercadoPago.Components
             IWorkContext workContext)
         {
             this._localizationService = localizationService;
-            this._workContext = workContext;
+            this._workContext = workContext;            
         }
 
         #endregion

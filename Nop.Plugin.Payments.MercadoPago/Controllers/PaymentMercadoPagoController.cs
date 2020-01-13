@@ -46,7 +46,6 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
         private readonly IPictureService _pictureService;
         private readonly ICategoryService _categoryService;
         private readonly ILocalizationService _localizationService;
-        private readonly IGenericAttributeService _genericAttributeService;
         #region Ctor
         public PaymentMercadoPagoController(IWorkContext workContext,
             IStoreService storeService,
@@ -61,8 +60,7 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
             MercadoPagoPaymentSettings MercadoPagoPaymentSettings,
             IPictureService pictureService,
             ICategoryService categoryService,
-            ILocalizationService localizationService,
-            IGenericAttributeService genericAttributeService)
+            ILocalizationService localizationService)
         {
             this._workContext = workContext;
             this._storeService = storeService;
@@ -78,7 +76,6 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
             this._pictureService = pictureService;
             this._categoryService = categoryService;
             this._localizationService = localizationService;
-            this._genericAttributeService = genericAttributeService;
         }
 
         #endregion
@@ -89,7 +86,7 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
         public ActionResult Configure()
         {
             //load settings for a chosen store scope
-            var storeScope = _storeContext.ActiveStoreScopeConfiguration;
+            var storeScope = this.GetActiveStoreScopeConfiguration(_storeService, _workContext);
             var mercadoPagoPaymentSettings = _settingService.LoadSetting<MercadoPagoPaymentSettings>(storeScope);
             var countries = MakeListCountrySetting();
             var model = new ConfigurationModel();
@@ -161,8 +158,8 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
                 return Configure();
 
             //load settings for a chosen store scope
-            var storeScope = _storeContext.ActiveStoreScopeConfiguration;
-            var mercadoPagoPaymentSettings = _settingService.LoadSetting<MercadoPagoPaymentSettings>(storeScope);            
+            var storeScope = this.GetActiveStoreScopeConfiguration(_storeService, _workContext);
+            var mercadoPagoPaymentSettings = _settingService.LoadSetting<MercadoPagoPaymentSettings>(storeScope);
 
             //save settings
             mercadoPagoPaymentSettings.countryId = model.countryId;
@@ -253,13 +250,13 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
         #endregion
 
         #region AuxMethods
-
         private string RemoveSpecialCharacters(string str)
         {
             if (string.IsNullOrEmpty(str))
                 return "NDD";
             return Regex.Replace(str, @"[^0-9A-Za-z]", " ", RegexOptions.None);
         }
+
 
         public ActionResult MPAction()
         {
@@ -282,14 +279,12 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
             if (order == null)//error
                 return new RedirectResult(_webHelper.GetStoreLocation() + "Plugins/PaymentMercadoPago/Error.cshtml");
 
-            //load settings for a chosen store scope
-            var storeScope = _storeContext.ActiveStoreScopeConfiguration;
+            var storeScope = this.GetActiveStoreScopeConfiguration(_storeService, _workContext);
             var mercadoPagoPaymentSettings = _settingService.LoadSetting<MercadoPagoPaymentSettings>(storeScope);
             var countrySetting = CountrySettingByCountryId(_MercadoPagoPaymentSettings.countryId);
             MP mp = new MP(mercadoPagoPaymentSettings.client_id, mercadoPagoPaymentSettings.client_secret);
 
-            //string external_reference = string.Format("\"external_reference\": \"{0}\"", order.OrderGuid.ToString());
-            string external_reference = string.Format("\"external_reference\": \"{0}\"", order.Id.ToString());
+            string external_reference = string.Format("\"external_reference\": \"{0}\"", order.OrderGuid.ToString());
             string items = "\"items\":[";
 
             if (!mercadoPagoPaymentSettings.ManejarTotal)
@@ -326,8 +321,8 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
 
             items += "]";
 
-            //string payer = "\"payer\": { \"name\": \"" + order.Customer.GetAttribute<string>(SystemCustomerAttributeNames.FirstName) + "\",\"surname\": \"" + order.Customer.GetAttribute<string>(SystemCustomerAttributeNames.LastName) + "\",\"email\": \"" + order.Customer.Email + "\",\"phone\": \"" + order.Customer.GetAttribute<string>(SystemCustomerAttributeNames.Phone) + "\",\"date_created\": \"" + order.Customer.CreatedOnUtc.ToString("yyyy-MM-ddTHH:mm:ssK") + "\"}";            
-            string payer = "\"payer\": { \"name\": \"" + _genericAttributeService.GetAttribute<string>(order.Customer, NopCustomerDefaults.FirstNameAttribute) + "\",\"surname\": \"" + _genericAttributeService.GetAttribute<string>(order.Customer, NopCustomerDefaults.LastNameAttribute) + "\",\"email\": \"" + order.Customer.Email + "\",\"date_created\": \"" + order.Customer.CreatedOnUtc.ToString("yyyy-MM-ddTHH:mm:ssK") + "\"}";            
+            //string payer = "\"payer\": { \"name\": \"" + order.Customer.GetAttribute<string>(SystemCustomerAttributeNames.FirstName) + "\",\"surname\": \"" + order.Customer.GetAttribute<string>(SystemCustomerAttributeNames.LastName) + "\",\"email\": \"" + order.Customer.Email + "\",\"phone\": \"" + order.Customer.GetAttribute<string>(SystemCustomerAttributeNames.Phone) + "\",\"date_created\": \"" + order.Customer.CreatedOnUtc.ToString("yyyy-MM-ddTHH:mm:ssK") + "\"}";
+            string payer = "\"payer\": { \"name\": \"" + order.Customer.GetAttribute<string>(SystemCustomerAttributeNames.FirstName) + "\",\"surname\": \"" + order.Customer.GetAttribute<string>(SystemCustomerAttributeNames.LastName) + "\",\"email\": \"" + order.Customer.Email + "\",\"date_created\": \"" + order.Customer.CreatedOnUtc.ToString("yyyy-MM-ddTHH:mm:ssK") + "\"}";
             string urlSuccess = _webHelper.GetStoreLocation() + "Plugins/PaymentMercadoPago/Success/" + order.Id.ToString() + "/" + order.OrderGuid.ToString(); // Url.RouteUrl(new { Controller = "PaymentMercadoPago", Action = "Success", oId = order.Id, oG = order.OrderGuid });
             string urlFailure = _webHelper.GetStoreLocation() + "Plugins/PaymentMercadoPago/Failure/" + order.Id.ToString() + "/" + order.OrderGuid.ToString(); //Url.RouteUrl(new { Controller = "PaymentMercadoPago", Action = "Failure", oId = order.Id, oG = order.OrderGuid });
             string urlPending = _webHelper.GetStoreLocation() + "Plugins/PaymentMercadoPago/Pending/" + order.Id.ToString() + "/" + order.OrderGuid.ToString(); //Url.RouteUrl(new { Controller = "PaymentMercadoPago", Action = "Pending", oId = order.Id, oG = order.OrderGuid }); 
@@ -520,8 +515,7 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
         //[ValidateInput(false)]
         public ActionResult IPN()
         {
-            //load settings for a chosen store scope
-            var storeScope = _storeContext.ActiveStoreScopeConfiguration;
+            var storeScope = this.GetActiveStoreScopeConfiguration(_storeService, _workContext);
             var mercadoPagoPaymentSettings = _settingService.LoadSetting<MercadoPagoPaymentSettings>(storeScope);
 
             string RedirectUrl = _webHelper.GetStoreLocation() + "Plugins/PaymentMercadoPago/Error";
@@ -578,8 +572,7 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
 
                             if (!string.IsNullOrEmpty(external_reference))
                             {
-                                //var order = _orderService.GetOrderByGuid(Guid.Parse(external_reference));
-                                var order = _orderService.GetOrderById(int.Parse(external_reference));
+                                var order = _orderService.GetOrderByGuid(Guid.Parse(external_reference));
                                 if (order == null)
                                 {
                                     external_reference = collection["order_id"].ToString();
@@ -1154,7 +1147,7 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
             sConfigPM = configListPM.Where(cPM => cPM.CountryId == countryId).First();
             return sConfigPM;
         }
-
+        
         public ActionResult GetCountrySettingByCountryId(string countryId, bool addSelectStateItem)
         {
             CountrySetting sConfigPM = CountrySettingByCountryId(countryId);
@@ -1169,7 +1162,7 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
             };
             return Json(model);
         }
-
+        
         #endregion
     }
 }

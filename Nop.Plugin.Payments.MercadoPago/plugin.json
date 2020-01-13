@@ -3,7 +3,7 @@
   "FriendlyName": "MercadoPago CheckOut Básico",
   "SystemName": "Payments.MercadoPago",
   "Version": "1.35",
-  "SupportedVersions": [ "4.10" ],
+  "SupportedVersions": [ "4.00" ],
   "Author": "Tecnofin Team, AHM",
   "DisplayOrder": 1,
   "FileName": "Nop.Plugin.Payments.MercadoPago.dll",

@@ -35,7 +35,19 @@ namespace Nop.Plugin.Payments.MercadoPago
                 "Plugins/PaymentMercadoPago/Pending/{oId?}/{oG?}",
                 new { controller = "PaymentMercadoPago", action = "Pending" }); //,
                 //new { oId = @"\d+", oG = @"^(\{{0,1}([0-9a-fA-F]){8}-([0-9a-fA-F]){4}-([0-9a-fA-F]){4}-([0-9a-fA-F]){4}-([0-9a-fA-F]){12}\}{0,1})$" });
-            
+            /*
+            routeBuilder.MapRoute("Plugin.Payments.MercadoPago.Success",
+                "Plugins/PaymentMercadoPago/Success/{oId:regex(\\d+)}/{oG:regex(^\\{{{{0,1}}([0-9a-fA-F]){{8}}-([0-9a-fA-F]){4}-([0-9a-fA-F]){4}-([0-9a-fA-F]){{4}}-([0-9a-fA-F]){12}\\}}{{0,1}}$)}",
+                new { controller = "PaymentMercadoPago", action = "Success" });
+
+            routeBuilder.MapRoute("Plugin.Payments.MercadoPago.Failure",
+                "Plugins/PaymentMercadoPago/Failure/{oId:regex(\\d+)}/{oG:regex(^\\{{{{0,1}}([0-9a-fA-F]){{8}}-([0-9a-fA-F]){4}-([0-9a-fA-F]){4}-([0-9a-fA-F]){{4}}-([0-9a-fA-F]){12}\\}}{{0,1}}$)}",
+                new { controller = "PaymentMercadoPago", action = "Failure" });
+
+            routeBuilder.MapRoute("Plugin.Payments.MercadoPago.Pending",
+                "Plugins/PaymentMercadoPago/Pending/{oId:regex(\\d+)}/{oG:regex(^\\{{{{0,1}}([0-9a-fA-F]){{8}}-([0-9a-fA-F]){4}-([0-9a-fA-F]){4}-([0-9a-fA-F]){{4}}-([0-9a-fA-F]){12}\\}}{{0,1}}$)}",
+                new { controller = "PaymentMercadoPago", action = "Pending" });
+                */
 
             //get countrysetting by country ID  (AJAX link)
             routeBuilder.MapRoute("GetCountrySettingByCountryId",

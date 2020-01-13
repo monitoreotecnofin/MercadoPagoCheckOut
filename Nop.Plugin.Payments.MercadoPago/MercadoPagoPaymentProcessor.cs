@@ -1,15 +1,19 @@
-﻿using Microsoft.AspNetCore.Http;
-using Nop.Core;
-using Nop.Core.Domain.Orders;
-using Nop.Core.Domain.Payments;
-using Nop.Core.Plugins;
-using Nop.Services.Configuration;
-using Nop.Services.Localization;
-using Nop.Services.Orders;
+﻿using Nop.Core.Plugins;
 using Nop.Services.Payments;
-using Nop.Web.Framework;
 using System;
 using System.Collections.Generic;
+using Microsoft.AspNetCore.Http;
+using Nop.Core.Domain.Orders;
+using Nop.Services.Directory;
+using Nop.Core.Domain.Directory;
+using Nop.Core;
+using Nop.Services.Orders;
+using Nop.Services.Tax;
+using Nop.Services.Localization;
+using Nop.Services.Configuration;
+using System.Web;
+using Nop.Web.Framework;
+using Nop.Core.Domain.Payments;
 
 namespace Nop.Plugin.Payments.MercadoPago
 {
@@ -17,28 +21,30 @@ namespace Nop.Plugin.Payments.MercadoPago
     {
         #region Fields
         private readonly MercadoPagoPaymentSettings _mercadoPagoPaymentSettings;
-        private readonly ISettingService _settingService;       
-        private readonly IWebHelper _webHelper;        
-        private readonly IOrderTotalCalculationService _orderTotalCalculationService;        
+        private readonly ISettingService _settingService;
+        //private readonly ICurrencyService _currencyService;
+        //private readonly CurrencySettings _currencySettings;
+        private readonly IWebHelper _webHelper;
+        //private readonly ICheckoutAttributeParser _checkoutAttributeParser;
+        //private readonly ITaxService _taxService;
+        private readonly IOrderTotalCalculationService _orderTotalCalculationService;
+        //private readonly HttpContextBase _httpContext;
         private readonly ILocalizationService _localizationService;
-        private readonly IPaymentService _paymentService;
         #endregion
         #region Ctor
         public MercadoPagoPaymentProcessor(ILocalizationService localizationService,
             IOrderTotalCalculationService orderTotalCalculationService,
             ISettingService settingService,
             IWebHelper webHelper,
-            MercadoPagoPaymentSettings mercadoPagoPaymentSettings,
-            IPaymentService paymentService)
+            MercadoPagoPaymentSettings mercadoPagoPaymentSettings)
         {
             this._localizationService = localizationService;
             this._orderTotalCalculationService = orderTotalCalculationService;
             this._settingService = settingService;
             this._webHelper = webHelper;
-            this._paymentService = paymentService;
-            this._mercadoPagoPaymentSettings = mercadoPagoPaymentSettings;            
+            this._mercadoPagoPaymentSettings = mercadoPagoPaymentSettings;
         }
-
+        
         #endregion
         #region Properties
         public bool SupportCapture
@@ -134,9 +140,10 @@ namespace Nop.Plugin.Payments.MercadoPago
 
         public decimal GetAdditionalHandlingFee(IList<ShoppingCartItem> cart)
         {
-            return _paymentService.CalculateAdditionalFee(cart,
-               _mercadoPagoPaymentSettings.AdditionalFee, _mercadoPagoPaymentSettings.AdditionalFeePercentage);
-           
+            var result = this.CalculateAdditionalFee(_orderTotalCalculationService, cart,
+                _mercadoPagoPaymentSettings.AdditionalFee, _mercadoPagoPaymentSettings.AdditionalFeePercentage);
+
+            return result;
         }
 
         public ProcessPaymentRequest GetPaymentInfo(IFormCollection form)
@@ -153,11 +160,11 @@ namespace Nop.Plugin.Payments.MercadoPago
             return $"{_webHelper.GetStoreLocation()}Admin/PaymentMercadoPago/Configure";
         }
 
-        public string GetPublicViewComponentName()
+        public void GetPublicViewComponent(out string viewComponentName)
         {
-            return "PaymentMercadoPago";
+            viewComponentName = "PaymentMercadoPago";
         }
-        
+
         public bool HidePaymentMethod(IList<ShoppingCartItem> cart)
         {
             //you can put any logic here
@@ -233,38 +240,38 @@ namespace Nop.Plugin.Payments.MercadoPago
             _settingService.SaveSetting(settings);
 
             //locales
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.RedirectionTip", "Por este medio  puedes pagar en tiendas <strong>OXXO</strong>, hacer depósitos o transferencias bancarias. <br/>Serás redireccionado a Mercado Pago para finalizar el pedido.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.UseLog", "Usa Log");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.UseLog.Hint", "Habilita el Log.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.test_mode", "Habilita Sponsor");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.test_mode.Hint", "Habilita que el PlugIn fue descargado de NopCommerce");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.client_id", "Id de Cliente en MercadoPago");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.client_id.Hint", "Id de cliente que se obtuvo de mercado pago");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.client_secret", "Secreto");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.client_secret.Hint", "Cadena de caracteres secreta en MercadoPago");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.mp_mode", "Modo de MercadoPago");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.mp_mode.Hint", "Modo de desplegarse la ventana de Mercado Pago, modal, popup, blank, redirect");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.AdditionalFee", "Cargo adicional");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.AdditionalFee.Hint", "Monto para el cargo adicional");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.AdditionalFeePercentage", "Usar porcentaje");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.AdditionalFeePercentage.Hint", "Habilita si se requiere manejar por porcentaje");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.EnableIpn", "Habilita IPN");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.EnableIpn.Hint", "Habilita Instant Payment Notification");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.IpnUrl", "URL del IPN");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.IpnUrl.Hint", "URL del IPN");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.moneda", "Moneda: Argentina(ARS-USD)  Brasil(BRL) Mexico(MXN) Venezuela(VEF) Colombia(COP)");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.AvailableDays", "Dias disponibles para el pedido");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.Error", "Ha ocurrido un error en el proceso");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.Success", "Ha concluido el pedido de manera exitosa");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.Pending", "El Pedido se encuentra en proceso de confirmación del pago.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.Failure", "Ocurrio un error durante el proceso y el pedido fue Cancelado, por favor intente nuevamente.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.IdTestIPN", "Id de Test IPN");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.IdTestIPN.Hint", "Id Para configurar IPN");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.excluded_payment_methods", "Metodos de pago excluidos");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.excluded_payment_types", "Tipos de pago excluidos");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.PaymentMethodDescription", "Seras redireccionado a Mercado Pago para completar el pago.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.ManejarTotal", "Maneja solo Totales.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.ManejarTotal.Hint", "Maneja Totales no manda items.");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.RedirectionTip", "Por este medio  puedes pagar en tiendas <strong>OXXO</strong>, hacer depósitos o transferencias bancarias. <br/>Serás redireccionado a Mercado Pago para finalizar el pedido.");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.UseLog", "Usa Log");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.UseLog.Hint", "Habilita el Log.");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.test_mode", "Habilita Sponsor");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.test_mode.Hint", "Habilita que el PlugIn fue descargado de NopCommerce");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.client_id", "Id de Cliente en MercadoPago");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.client_id.Hint", "Id de cliente que se obtuvo de mercado pago");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.client_secret", "Secreto");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.client_secret.Hint", "Cadena de caracteres secreta en MercadoPago");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.mp_mode", "Modo de MercadoPago");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.mp_mode.Hint", "Modo de desplegarse la ventana de Mercado Pago, modal, popup, blank, redirect");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.AdditionalFee", "Cargo adicional");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.AdditionalFee.Hint", "Monto para el cargo adicional");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.AdditionalFeePercentage", "Usar porcentaje");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.AdditionalFeePercentage.Hint", "Habilita si se requiere manejar por porcentaje");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.EnableIpn", "Habilita IPN");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.EnableIpn.Hint", "Habilita Instant Payment Notification");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.IpnUrl", "URL del IPN");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.IpnUrl.Hint", "URL del IPN");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.moneda", "Moneda: Argentina(ARS-USD)  Brasil(BRL) Mexico(MXN) Venezuela(VEF) Colombia(COP)");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.AvailableDays", "Dias disponibles para el pedido");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.Error", "Ha ocurrido un error en el proceso");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.Success", "Ha concluido el pedido de manera exitosa");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.Pending", "El Pedido se encuentra en proceso de confirmación del pago.");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.Failure", "Ocurrio un error durante el proceso y el pedido fue Cancelado, por favor intente nuevamente.");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.IdTestIPN", "Id de Test IPN");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.IdTestIPN.Hint", "Id Para configurar IPN");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.excluded_payment_methods", "Metodos de pago excluidos");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.excluded_payment_types", "Tipos de pago excluidos");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.PaymentMethodDescription", "Seras redireccionado a Mercado Pago para completar el pago.");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.ManejarTotal", "Maneja solo Totales.");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.ManejarTotal.Hint", "Maneja Totales no manda items.");
 
             base.Install();
         }
@@ -275,40 +282,39 @@ namespace Nop.Plugin.Payments.MercadoPago
             _settingService.DeleteSetting<MercadoPagoPaymentSettings>();
 
             //locales
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.RedirectionTip");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.UseLog");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.UseLog.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.test_mode");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.test_mode.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.client_id");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.client_id.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.client_secret");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.client_secret.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.mp_mode");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.mp_mode.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.AdditionalFee");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.AdditionalFee.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.AdditionalFeePercentage");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.AdditionalFeePercentage.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.EnableIpn");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.EnableIpn.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.IpnUrl");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.IpnUrl.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.moneda");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.AvailableDays");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.Error");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.Success");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.Pending");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.Failure");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.excluded_payment_methods");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.excluded_payment_types");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.PaymentMethodDescription");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.ManejarTotal");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.ManejarTotal.Hint");
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.RedirectionTip");
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.UseLog");
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.UseLog.Hint");
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.test_mode");
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.test_mode.Hint");
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.client_id");
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.client_id.Hint");
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.client_secret");
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.client_secret.Hint");
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.mp_mode");
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.mp_mode.Hint");
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.AdditionalFee");
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.AdditionalFee.Hint");
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.AdditionalFeePercentage");
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.AdditionalFeePercentage.Hint");
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.EnableIpn");
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.EnableIpn.Hint");
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.IpnUrl");
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.IpnUrl.Hint");
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.moneda");
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.AvailableDays");
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.Error");
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.Success");
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.Pending");
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.Failure");
+
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.excluded_payment_methods");
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.excluded_payment_types");
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.PaymentMethodDescription");
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.ManejarTotal");
+            this.DeletePluginLocaleResource("Plugins.Payments.MercadoPago.Fields.ManejarTotal.Hint");
             base.Uninstall();
         }
-
-        
 
         #endregion
     }
