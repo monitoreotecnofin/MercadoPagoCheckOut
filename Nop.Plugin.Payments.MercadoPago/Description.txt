@@ -1,0 +1,9 @@
+﻿Group: Payment methods
+FriendlyName: MercadoPago CheckOut Básico
+SystemName: Payments.MercadoPago
+Version: 1.35
+SupportedVersions: 3.90
+Author: Tecnofin Team, AHM
+DisplayOrder: 1
+FileName: Nop.Plugin.Payments.MercadoPago.dll
+Description: Este plugin permite pagar con Redireccionamiento con Mercado Pago

@@ -1,5 +1,9 @@
-﻿using Nop.Web.Framework.Models;
+﻿using Nop.Web.Framework.Mvc;
+using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace Nop.Plugin.Payments.MercadoPago.Models
 {
@@ -9,6 +13,7 @@ namespace Nop.Plugin.Payments.MercadoPago.Models
         {
             PaymentMethods = new List<PaymentMethodSetting>();
         }
+
         public string CountryId { get; set; }
 
         public string CountryName { get; set; }

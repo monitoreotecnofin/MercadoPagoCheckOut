@@ -1,0 +1,15 @@
+﻿@{
+    Layout = "~/Views/Shared/_ColumnsOne.cshtml";
+}
+@model Nop.Plugin.Payments.MercadoPago.Models.GenericModel
+@using Nop.Web.Framework;
+
+<strong>
+    @T("Plugins.Payments.MercadoPago.Fields.Pending")
+</strong>
+<p>
+    @T("Checkout.OrderNumber"): @Model.orderId
+</p>
+<p>
+    <a href="@Url.RouteUrl("OrderDetails", new { orderID = Model.orderId})">@T("Checkout.PlacedOrderDetails")</a>
+</p>

@@ -1,7 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc.Rendering;
-using Nop.Web.Framework.Models;
-using Nop.Web.Framework.Mvc.ModelBinding;
+﻿using Nop.Web.Framework;
+using Nop.Web.Framework.Mvc;
 using System.Collections.Generic;
+using System.Web.Mvc;
 
 namespace Nop.Plugin.Payments.MercadoPago.Models
 {
@@ -58,7 +58,7 @@ namespace Nop.Plugin.Payments.MercadoPago.Models
         [NopResourceDisplayName("Plugins.Payments.MercadoPago.Fields.IpnUrl")]
         public string IpnUrl { get; set; }
         public bool IpnUrl_OverrideForStore { get; set; }
-
+        
         [NopResourceDisplayName("Plugins.Payments.MercadoPago.Fields.IdTestIPN")]
         public string IdTestIPN { get; set; }
         public bool IdTestIPN_OverrideForStore { get; set; }

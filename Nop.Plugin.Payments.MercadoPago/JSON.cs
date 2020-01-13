@@ -1,9 +1,8 @@
-﻿using System;
+﻿
+using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
-
 namespace Nop.Plugin.Payments.MercadoPago
 {
     public class JSON

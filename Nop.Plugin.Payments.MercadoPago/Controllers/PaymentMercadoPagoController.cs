@@ -1,32 +1,30 @@
-﻿using Nop.Services.Logging;
-using mercadopago;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
+﻿using mercadopago;
 using Nop.Core;
 using Nop.Core.Domain.Customers;
+using Nop.Core.Domain.Logging;
 using Nop.Core.Domain.Orders;
 using Nop.Core.Domain.Payments;
 using Nop.Plugin.Payments.MercadoPago.Models;
 using Nop.Services.Catalog;
+using Nop.Services.Common;
 using Nop.Services.Configuration;
 using Nop.Services.Localization;
+using Nop.Services.Logging;
 using Nop.Services.Media;
 using Nop.Services.Orders;
 using Nop.Services.Payments;
 using Nop.Services.Stores;
+using Nop.Web.Framework;
 using Nop.Web.Framework.Controllers;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Net;
 using System.Text;
-using Nop.Services.Common;
-using Nop.Web.Framework.Mvc.Filters;
-using Microsoft.Extensions.Logging;
-using Nop.Web.Framework;
-using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using System.Web.Mvc;
 
 namespace Nop.Plugin.Payments.MercadoPago.Controllers
 {
@@ -39,14 +37,13 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
         private readonly IOrderService _orderService;
         private readonly IOrderProcessingService _orderProcessingService;
         private readonly IStoreContext _storeContext;
-        private readonly Nop.Services.Logging.ILogger _logger;
+        private readonly ILogger _logger;
         private readonly IWebHelper _webHelper;
         private readonly PaymentSettings _paymentSettings;
         private readonly MercadoPagoPaymentSettings _MercadoPagoPaymentSettings;
         private readonly IPictureService _pictureService;
         private readonly ICategoryService _categoryService;
         private readonly ILocalizationService _localizationService;
-        private readonly IGenericAttributeService _genericAttributeService;
         #region Ctor
         public PaymentMercadoPagoController(IWorkContext workContext,
             IStoreService storeService,
@@ -55,14 +52,13 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
             IOrderService orderService,
             IOrderProcessingService orderProcessingService,
             IStoreContext storeContext,
-            Nop.Services.Logging.ILogger logger,
+            ILogger logger,
             IWebHelper webHelper,
             PaymentSettings paymentSettings,
             MercadoPagoPaymentSettings MercadoPagoPaymentSettings,
             IPictureService pictureService,
             ICategoryService categoryService,
-            ILocalizationService localizationService,
-            IGenericAttributeService genericAttributeService)
+            ILocalizationService localizationService)
         {
             this._workContext = workContext;
             this._storeService = storeService;
@@ -78,18 +74,17 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
             this._pictureService = pictureService;
             this._categoryService = categoryService;
             this._localizationService = localizationService;
-            this._genericAttributeService = genericAttributeService;
         }
 
         #endregion
 
         #region Methods
-        [AuthorizeAdmin]
-        [Area(AreaNames.Admin)]
+        [AdminAuthorize]
+        [ChildActionOnly]
         public ActionResult Configure()
         {
             //load settings for a chosen store scope
-            var storeScope = _storeContext.ActiveStoreScopeConfiguration;
+            var storeScope = this.GetActiveStoreScopeConfiguration(_storeService, _workContext);
             var mercadoPagoPaymentSettings = _settingService.LoadSetting<MercadoPagoPaymentSettings>(storeScope);
             var countries = MakeListCountrySetting();
             var model = new ConfigurationModel();
@@ -148,21 +143,20 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
                 model.excluded_payment_types_OverrideForStore = _settingService.SettingExists(mercadoPagoPaymentSettings, x => x.excluded_payment_types, storeScope);
             }
 
-            return View("~/Plugins/Payments.MercadoPago/Views/Configure.cshtml", model);
+            return View("~/Plugins/Payments.MercadoPago/Views/PaymentMercadoPago/Configure.cshtml", model);
         }
 
         [HttpPost]
-        [AuthorizeAdmin]
-        [AdminAntiForgery]
-        [Area(AreaNames.Admin)]
+        [AdminAuthorize]
+        [ChildActionOnly]
         public ActionResult Configure(ConfigurationModel model)
         {
             if (!ModelState.IsValid)
                 return Configure();
 
             //load settings for a chosen store scope
-            var storeScope = _storeContext.ActiveStoreScopeConfiguration;
-            var mercadoPagoPaymentSettings = _settingService.LoadSetting<MercadoPagoPaymentSettings>(storeScope);            
+            var storeScope = this.GetActiveStoreScopeConfiguration(_storeService, _workContext);
+            var mercadoPagoPaymentSettings = _settingService.LoadSetting<MercadoPagoPaymentSettings>(storeScope);
 
             //save settings
             mercadoPagoPaymentSettings.countryId = model.countryId;
@@ -250,16 +244,30 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
 
             return Configure();
         }
+
+        [ChildActionOnly]
+        public ActionResult PaymentInfo()
+        {
+            return View("~/Plugins/Payments.MercadoPago/Views/PaymentMercadoPago/PaymentInfo.cshtml");
+        }
+
+        [NonAction]
+        public override IList<string> ValidatePaymentForm(FormCollection form)
+        {
+            var warnings = new List<string>();
+            return warnings;
+        }
+
+        [NonAction]
+        public override ProcessPaymentRequest GetPaymentInfo(FormCollection form)
+        {
+            var paymentInfo = new ProcessPaymentRequest();
+            return paymentInfo;
+        }
+
         #endregion
 
         #region AuxMethods
-
-        private string RemoveSpecialCharacters(string str)
-        {
-            if (string.IsNullOrEmpty(str))
-                return "NDD";
-            return Regex.Replace(str, @"[^0-9A-Za-z]", " ", RegexOptions.None);
-        }
 
         public ActionResult MPAction()
         {
@@ -282,14 +290,12 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
             if (order == null)//error
                 return new RedirectResult(_webHelper.GetStoreLocation() + "Plugins/PaymentMercadoPago/Error.cshtml");
 
-            //load settings for a chosen store scope
-            var storeScope = _storeContext.ActiveStoreScopeConfiguration;
+            var storeScope = this.GetActiveStoreScopeConfiguration(_storeService, _workContext);
             var mercadoPagoPaymentSettings = _settingService.LoadSetting<MercadoPagoPaymentSettings>(storeScope);
             var countrySetting = CountrySettingByCountryId(_MercadoPagoPaymentSettings.countryId);
             MP mp = new MP(mercadoPagoPaymentSettings.client_id, mercadoPagoPaymentSettings.client_secret);
 
-            //string external_reference = string.Format("\"external_reference\": \"{0}\"", order.OrderGuid.ToString());
-            string external_reference = string.Format("\"external_reference\": \"{0}\"", order.Id.ToString());
+            string external_reference = string.Format("\"external_reference\": \"{0}\"", order.OrderGuid.ToString());
             string items = "\"items\":[";
 
             if (!mercadoPagoPaymentSettings.ManejarTotal)
@@ -311,7 +317,7 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
                     {
                         category = defaultProductCategory.Category.Name;
                     }
-                    items += "{\"id\": \"" + item.Product.Sku + "\",\"title\": \"" + RemoveSpecialCharacters(item.Product.Name) + "\",\"currency_id\": \"" + countrySetting.Moneda + "\",\"picture_url\": \"" + urlPicture + "\",\"quantity\": " + item.Quantity.ToString() + ",\"unit_price\": " + string.Format(CultureInfo.InvariantCulture, "{0:0.00}", item.UnitPriceInclTax) + "},";
+                    items += "{\"id\": \"" + item.Product.Sku + "\",\"title\": \"" + item.Product.Name + "\",\"currency_id\": \"" + countrySetting.Moneda + "\",\"picture_url\": \"" + urlPicture + "\",\"quantity\": " + item.Quantity.ToString() + ",\"unit_price\": " + string.Format(CultureInfo.InvariantCulture, "{0:0.00}", item.UnitPriceInclTax) + "},";
                 }
                 if (order.OrderShippingInclTax > 0)
                     items += "{\"id\": \"" + "Mensajeria" + "\",\"title\": \"" + "Envio especializado" + "\",\"currency_id\": \"" + countrySetting.Moneda + "\",\"quantity\": " + "1" + ",\"unit_price\": " + string.Format(CultureInfo.InvariantCulture, "{0:0.00}", order.OrderShippingInclTax) + "},";
@@ -326,8 +332,8 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
 
             items += "]";
 
-            //string payer = "\"payer\": { \"name\": \"" + order.Customer.GetAttribute<string>(SystemCustomerAttributeNames.FirstName) + "\",\"surname\": \"" + order.Customer.GetAttribute<string>(SystemCustomerAttributeNames.LastName) + "\",\"email\": \"" + order.Customer.Email + "\",\"phone\": \"" + order.Customer.GetAttribute<string>(SystemCustomerAttributeNames.Phone) + "\",\"date_created\": \"" + order.Customer.CreatedOnUtc.ToString("yyyy-MM-ddTHH:mm:ssK") + "\"}";            
-            string payer = "\"payer\": { \"name\": \"" + _genericAttributeService.GetAttribute<string>(order.Customer, NopCustomerDefaults.FirstNameAttribute) + "\",\"surname\": \"" + _genericAttributeService.GetAttribute<string>(order.Customer, NopCustomerDefaults.LastNameAttribute) + "\",\"email\": \"" + order.Customer.Email + "\",\"date_created\": \"" + order.Customer.CreatedOnUtc.ToString("yyyy-MM-ddTHH:mm:ssK") + "\"}";            
+            //string payer = "\"payer\": { \"name\": \"" + order.Customer.GetAttribute<string>(SystemCustomerAttributeNames.FirstName) + "\",\"surname\": \"" + order.Customer.GetAttribute<string>(SystemCustomerAttributeNames.LastName) + "\",\"email\": \"" + order.Customer.Email + "\",\"phone\": \"" + order.Customer.GetAttribute<string>(SystemCustomerAttributeNames.Phone) + "\",\"date_created\": \"" + order.Customer.CreatedOnUtc.ToString("yyyy-MM-ddTHH:mm:ssK") + "\"}";
+            string payer = "\"payer\": { \"name\": \"" + order.Customer.GetAttribute<string>(SystemCustomerAttributeNames.FirstName) + "\",\"surname\": \"" + order.Customer.GetAttribute<string>(SystemCustomerAttributeNames.LastName) + "\",\"email\": \"" + order.Customer.Email + "\",\"date_created\": \"" + order.Customer.CreatedOnUtc.ToString("yyyy-MM-ddTHH:mm:ssK") + "\"}";
             string urlSuccess = _webHelper.GetStoreLocation() + "Plugins/PaymentMercadoPago/Success/" + order.Id.ToString() + "/" + order.OrderGuid.ToString(); // Url.RouteUrl(new { Controller = "PaymentMercadoPago", Action = "Success", oId = order.Id, oG = order.OrderGuid });
             string urlFailure = _webHelper.GetStoreLocation() + "Plugins/PaymentMercadoPago/Failure/" + order.Id.ToString() + "/" + order.OrderGuid.ToString(); //Url.RouteUrl(new { Controller = "PaymentMercadoPago", Action = "Failure", oId = order.Id, oG = order.OrderGuid });
             string urlPending = _webHelper.GetStoreLocation() + "Plugins/PaymentMercadoPago/Pending/" + order.Id.ToString() + "/" + order.OrderGuid.ToString(); //Url.RouteUrl(new { Controller = "PaymentMercadoPago", Action = "Pending", oId = order.Id, oG = order.OrderGuid }); 
@@ -394,14 +400,14 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
                     _orderService.UpdateOrder(order);
                 }
                 string init_point = (string)((Hashtable)preference["response"])["init_point"];
-                return new RedirectResult(init_point);
-                //return Content("<html><script>window.top.location.href = '" + init_point + "'; </script><body onload=\"window.history.forward()\"></body></html>");
+
+                return Content("<html><script>window.top.location.href = '" + init_point + "'; </script><body onload=\"window.history.forward()\"></body></html>");
             }
             else
             {
                 string error = (string)((Hashtable)preference["response"])["message"];
                 if (!string.IsNullOrEmpty(error))
-                    _logger.Error(LogLevel.Error.ToString() + "Mercado Pago Error:" + error);
+                    _logger.InsertLog(LogLevel.Error, "Mercado Pago Error", error);
 
                 var model = new MPActionModel()
                 {
@@ -411,13 +417,13 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
                     EnableIpn = mercadoPagoPaymentSettings.EnableIpn,
                 };
 
-                return View("~/Plugins/Payments.MercadoPago/Views/MPAction.cshtml", model);
+                return View("~/Plugins/Payments.MercadoPago/Views/PaymentMercadoPago/MPAction.cshtml", model);
             }
         }
 
         public ActionResult Error()
         {
-            return View("~/Plugins/Payments.MercadoPago/Views/Error.cshtml");
+            return View("~/Plugins/Payments.MercadoPago/Views/PaymentMercadoPago/Error.cshtml");
         }
 
         public ActionResult Success(int? oId, Guid? oG)
@@ -444,7 +450,7 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
                 });
 
                 _orderService.UpdateOrder(order);
-                return RedirectToRoute("CheckoutCompleted", new { orderId = order.Id });
+                return RedirectToRoute("CheckoutCompleted", new { orderId = order.Id });                
             }
             else
                 return new RedirectResult(RedirectUrl);
@@ -478,7 +484,7 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
                     _orderProcessingService.CancelOrder(order, false);
 
                 //model
-                GenericModel model = new GenericModel() { orderId = order.Id };
+                GenericModel model = new GenericModel() { orderId = order.Id };                
                 return RedirectToRoute("CheckoutCompleted", new { orderId = order.Id });
             }
             else
@@ -509,56 +515,55 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
                 });
 
                 _orderService.UpdateOrder(order);
-                return RedirectToRoute("CheckoutCompleted", new { orderId = order.Id });
+                return RedirectToRoute("CheckoutCompleted", new { orderId = order.Id });                
             }
             else
             {
                 return new RedirectResult(RedirectUrl);
             }
         }
-
-        //[ValidateInput(false)]
+        
+        [ValidateInput(false)]
         public ActionResult IPN()
         {
-            //load settings for a chosen store scope
-            var storeScope = _storeContext.ActiveStoreScopeConfiguration;
+            var storeScope = this.GetActiveStoreScopeConfiguration(_storeService, _workContext);
             var mercadoPagoPaymentSettings = _settingService.LoadSetting<MercadoPagoPaymentSettings>(storeScope);
 
-            string RedirectUrl = _webHelper.GetStoreLocation() + "Plugins/PaymentMercadoPago/Error";
+            string RedirectUrl = _webHelper.GetStoreLocation() + "Plugins/PaymentMercadoPago/Error.cshtml";
             if (!mercadoPagoPaymentSettings.EnableIpn)
                 return new RedirectResult(RedirectUrl);
 
-            if (HttpContext.Request.Query["topic"] == "")
-                return new NotFoundResult(); //HttpStatusCodeResult(HttpStatusCode.NotFound);
-
+            if (Request["topic"] == "")            
+                return new HttpStatusCodeResult(HttpStatusCode.NotFound);            
+            
             string id = string.Empty;
-            if (HttpContext.Request.Query["topic"] == "payment")
-                id = HttpContext.Request.Query["id"];
+            if (Request["topic"] == "payment")            
+                id = Request["id"];                           
 
-            if (HttpContext.Request.Query["type"] == "payment")
-                id = HttpContext.Request.Query["data.id"];
+            if (Request["type"] == "payment")            
+                id = Request["data.id"];
 
             MP mp = new MP(mercadoPagoPaymentSettings.client_id, mercadoPagoPaymentSettings.client_secret);
             if (mercadoPagoPaymentSettings.UseLog)
                 _logger.Information(string.Format("Data Id IPN mercado pago:{0}", id));
 
             if (id == "" || id == "12345")
-                return new NotFoundResult();//return new HttpStatusCodeResult(HttpStatusCode.OK);
+                return new HttpStatusCodeResult(HttpStatusCode.OK);
 
-            if (HttpContext.Request.Query["topic"] == "payment" || HttpContext.Request.Query["type"] == "payment")
-            {
+            if (Request["topic"] == "payment" || Request["type"] == "payment")
+            {                                                                    
                 // Get the payment reported by the IPN. Glossary of attributes response in https://developers.mercadopago.com
                 Hashtable payment_info = mp.getPaymentInfo(id);
-
+                
                 Hashtable response = (Hashtable)payment_info["response"];
                 if (mercadoPagoPaymentSettings.UseLog)
                 {
                     _logger.Information(string.Format("PaymentInfo[Response] mercado pago:{0}", payment_info["response"].ToString()));
                     _logger.Information(string.Format("PaymentInfo[Status] mercado pago:{0}", payment_info["status"].ToString()));
-                }
+                }                
                 // Show payment information
                 if ((int)payment_info["status"] == 200 || (int)payment_info["status"] == 201)
-                {
+                {                    
                     if (response != null)
                     {
                         Hashtable collection = (Hashtable)response["collection"];
@@ -570,7 +575,7 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
                         sb.AppendLine("status: " + collection["status"]);
                         sb.AppendLine("Pending reason: " + collection["status_detail"]);
                         sb.AppendLine("transaction_amount: " + collection["transaction_amount"]);
-                        _logger.Information(string.Format("Mensaje IPN mercado pago:{0}", sb));
+                        _logger.Error(string.Format("Mensaje IPN mercado pago:{0}", sb));
 
                         if (!string.IsNullOrEmpty(collection["external_reference"].ToString()))
                         {
@@ -578,8 +583,7 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
 
                             if (!string.IsNullOrEmpty(external_reference))
                             {
-                                //var order = _orderService.GetOrderByGuid(Guid.Parse(external_reference));
-                                var order = _orderService.GetOrderById(int.Parse(external_reference));
+                                var order = _orderService.GetOrderByGuid(Guid.Parse(external_reference));
                                 if (order == null)
                                 {
                                     external_reference = collection["order_id"].ToString();
@@ -613,13 +617,13 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
                                                 }
                                                 break;
                                             case "refunded":
-                                                if (_orderProcessingService.CanCancelOrder(order))
-                                                    _orderProcessingService.CancelOrder(order, false);
+                                                if (_orderProcessingService.CanCancelOrder(order))                                                        
+                                                    _orderProcessingService.CancelOrder(order, false);                                                        
                                                 break;
 
                                             case "cancelled":
-                                                if (_orderProcessingService.CanCancelOrder(order))
-                                                    _orderProcessingService.CancelOrder(order, false);
+                                                if (_orderProcessingService.CanCancelOrder(order))                                                        
+                                                    _orderProcessingService.CancelOrder(order, false);                                                        
                                                 break;
                                             default:
                                                 order.OrderNotes.Add(new OrderNote()
@@ -637,13 +641,13 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
                         }
                     }
 
-                    return new OkResult();//HttpStatusCodeResult(HttpStatusCode.OK);  // regresa que proceso bien la respuesta            
+                    return new HttpStatusCodeResult(HttpStatusCode.OK);  // regresa que proceso bien la respuesta            
                 }
                 else
-                    return new StatusCodeResult((int)payment_info["status"]); // HttpStatusCodeResult((int)payment_info["status"]);
+                     return new HttpStatusCodeResult((int)payment_info["status"]);
             }
 
-            return new OkResult(); //new HttpStatusCodeResult(HttpStatusCode.OK);
+            return new HttpStatusCodeResult(HttpStatusCode.OK);
         }
 
         protected List<CountrySetting> MakeListCountrySetting()
@@ -659,71 +663,71 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
                 PaymentMethods = new List<PaymentMethodSetting>()
                 {
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId ="visa",
                         Name = "Visa",
                         PaymentTypeId="credit_card"
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId ="amex",
                         Name = "American Express",
                         PaymentTypeId="credit_card"
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId ="master",
                         Name = "Mastercard",
                         PaymentTypeId="Mastercard"
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId ="bancomer",
                         Name = "BBVA Bancomer",
                         PaymentTypeId = "atm"
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId ="banamex",
                         Name = "Banamex",
                         PaymentTypeId = "atm"
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId ="serfin",
                         Name = "Santander",
                         PaymentTypeId="atm"
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId ="oxxo",
                         Name = "Oxxo",
                         PaymentTypeId = "ticket"
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId ="account_money",
                         Name = "Dinero en mi cuenta de MercadoPago",
                         PaymentTypeId="account_money"
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId ="debmaster",
                         Name = "Mastercard Débito",
                         PaymentTypeId = "debit_card"
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId ="debvisa",
                         Name = "Visa Débito",
                         PaymentTypeId = "debit_card"
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId ="mercadopagocard",
                         Name = "Tarjeta MercadoPago",
                         PaymentTypeId = "prepaid_card"
-                    }
+                    }                    
                 }
             });
 
@@ -737,133 +741,133 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
                 PaymentMethods = new List<PaymentMethodSetting>()
                 {
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId ="master",
                         Name = "Mastercard",
                         PaymentTypeId="credit_card"
-                    },
+                    },   
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "amex",
                         Name = "American Express",
                         PaymentTypeId = "credit_card"
-                    },
+                    },   
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "mercadopago_cc",
                         Name = "Mercado Pago + Banco Patagonia",
                         PaymentTypeId = "credit_card"
-                    },
+                    },   
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "naranja",
                         Name = "Naranja",
                         PaymentTypeId = "credit_card"
-                    },
+                    },   
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "nativa",
                         Name = "Nativa Mastercard",
                         PaymentTypeId = "credit_card"
-                    },
+                    },   
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "cabal",
                         Name = "Cabal",
                         PaymentTypeId = "credit_card",
-                    },
+                    },   
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "tarshop",
                         Name = "Tarjeta Shopping",
                         PaymentTypeId= "credit_card",
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "cencosud",
                         Name = "Cencosud",
                         PaymentTypeId= "credit_card",
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "diners",
                         Name = "Diners",
                         PaymentTypeId= "credit_card",
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "pagofacil",
                         Name = "Pago Fácil",
                         PaymentTypeId= "ticket",
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "argencard",
                         Name = "Argencard",
                         PaymentTypeId= "credit_card",
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "maestro",
                         Name = "Maestro",
                         PaymentTypeId= "debit_card",
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "debmaster",
                         Name = "Mastercard Débito",
                         PaymentTypeId= "debit_card",
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "debcabal",
                         Name = "Cabal Débito",
                         PaymentTypeId= "debit_card",
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "rapipago",
                         Name = "Rapipago",
                         PaymentTypeId= "ticket"
                     },
                      new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "redlink",
                         Name = "Red Link",
                         PaymentTypeId= "atm"
                     },
                      new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "bapropagos",
                         Name = "Provincia NET",
                         PaymentTypeId= "ticket",
                     },
                      new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "cargavirtual",
                         Name = "Kioscos y comercios cercanos",
                         PaymentTypeId= "ticket",
                     },
                      new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "cordobesa",
                         Name = "Cordobesa",
                         PaymentTypeId= "credit_card",
                     },
                      new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "cordial",
                         Name = "Tarjeta Walmart",
                         PaymentTypeId= "credit_card",
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "cmr",
                         Name = "CMR",
                         PaymentTypeId= "credit_card",
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "cobroexpress",
                         Name = "CobroExpress",
                         PaymentTypeId= "ticket",
@@ -880,46 +884,46 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
                 PaymentMethods = new List<PaymentMethodSetting>()
                 {
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "visa",
                         Name = "Visa",
                         PaymentTypeId= "credit_card",
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "master",
                         Name = "Mastercard",
                         PaymentTypeId= "credit_card",
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "hipercard",
                         Name = "Hipercard",
                         PaymentTypeId= "credit_card",
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "amex",
                         Name = "American Express",
                         PaymentTypeId= "credit_card",
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "diners",
                         Name = "Diners",
                         PaymentTypeId= "credit_card",
                     },new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "elo",
                         Name = "Elo",
                         PaymentTypeId= "credit_card",
                     },new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "melicard",
                         Name = "Cartão MercadoLivre",
                         PaymentTypeId= "credit_card"
                     },new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "bolbradesco",
                         Name = "Boleto",
                         PaymentTypeId= "ticket",
@@ -936,59 +940,59 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
                 PaymentMethods = new List<PaymentMethodSetting>()
                 {
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "visa",
                         Name = "Visa",
                         PaymentTypeId = "credit_card",
-                    },
+                    }, 
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "master",
                         Name = "Mastercard",
                         PaymentTypeId = "credit_card",
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "amex",
                         Name = "American Express",
                         PaymentTypeId = "credit_card",
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "magna",
                         Name = "Magna",
                         PaymentTypeId = "credit_card",
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "presto",
                         Name = "Presto",
                         PaymentTypeId = "credit_card",
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "cmr",
                         Name = "CMR",
                         PaymentTypeId = "credit_card"
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "diners",
                         Name = "Diners",
                         PaymentTypeId = "credit_card",
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "servipag",
                         Name = "Sucursales Servipag",
                         PaymentTypeId = "ticket",
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "webpay",
                         Name = "RedCompra (Webpay)",
                         PaymentTypeId = "bank_transfer",
-                    },
+                    },                    
                 }
             });
 
@@ -1001,53 +1005,53 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
                 PaymentMethods = new List<PaymentMethodSetting>()
                 {
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "visa",
                         Name = "Visa",
                         PaymentTypeId = "credit_card",
-                    },
+                    }, 
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "amex",
                         Name = "American Express",
                         PaymentTypeId = "credit_card",
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "master",
                         Name = "Mastercard",
                         PaymentTypeId = "credit_card",
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "diners",
                         Name = "Diners",
                         PaymentTypeId = "credit_card",
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "efecty",
                         Name = "Efecty",
                         PaymentTypeId = "ticket",
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "pse",
                         Name = "PSE",
                         PaymentTypeId = "bank_transfer",
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "codensa",
                         Name = "Crédito Fácil Codensa",
                         PaymentTypeId = "credit_card",
                     },
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "davivienda",
                         Name = "Davivienda",
                         PaymentTypeId = "ticket",
-                    },
+                    },                    
                 }
             });
 
@@ -1060,35 +1064,35 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
                 PaymentMethods = new List<PaymentMethodSetting>()
                 {
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "visa",
                         Name = "Visa",
                         PaymentTypeId = "credit_card",
-                    },
+                    }, 
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "master",
                         Name = "Mastercard",
                         PaymentTypeId = "credit_card",
-                    },
+                    }, 
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "provincial",
                         Name = "BBVA Provincial",
                         PaymentTypeId = "ticket",
-                    },
+                    }, 
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "mercantil",
                         Name = "Banco Mercantil",
                         PaymentTypeId = "atm",
-                    },
+                    }, 
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "banesco",
                         Name = "Banco Banesco",
                         PaymentTypeId = "ticket",
-                    },
+                    },                                         
                 }
             });
 
@@ -1101,47 +1105,47 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
                 PaymentMethods = new List<PaymentMethodSetting>()
                 {
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "visa",
                         Name = "Visa",
                         PaymentTypeId = "credit_card",
-                    },
+                    },  
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "debvisa",
                         Name = "Visa Débito",
                         PaymentTypeId = "debit_card",
-                    },
+                    },    
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "pagoefectivo_atm",
                         Name = "BCP, BBVA Continental u otros",
                         PaymentTypeId = "atm",
-                    },
+                    },    
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "pruebasetting",
                         Name = "Prueba Setting 2",
                         PaymentTypeId = "credit_card",
-                    },
+                    },    
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "master",
                         Name = "Mastercard",
                         PaymentTypeId = "credit_card",
-                    },
+                    },    
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "amex",
                         Name = "American Express",
                         PaymentTypeId = "credit_card",
-                    },
+                    },    
                     new PaymentMethodSetting()
-                    {
+                    { 
                         MethodId = "debmaster",
                         Name = "Mastercard Débito",
                         PaymentTypeId = "debit_card"
-                    }
+                    }                       
                 }
             });
             return countrySetting;
@@ -1155,10 +1159,13 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
             return sConfigPM;
         }
 
+
+        [PublicStoreAllowNavigation(true)]
+        [AcceptVerbs(HttpVerbs.Get)]
         public ActionResult GetCountrySettingByCountryId(string countryId, bool addSelectStateItem)
         {
-            CountrySetting sConfigPM = CountrySettingByCountryId(countryId);
-
+            CountrySetting sConfigPM = CountrySettingByCountryId(countryId);            
+            
             CountrySettingModel model = new CountrySettingModel()
             {
                 CountryId = sConfigPM.CountryId,
@@ -1167,9 +1174,8 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
                 SponsorId = sConfigPM.SponsorId,
                 PaymentMethods = sConfigPM.PaymentMethods,
             };
-            return Json(model);
+            return Json(model, JsonRequestBehavior.AllowGet);
         }
-
         #endregion
     }
 }

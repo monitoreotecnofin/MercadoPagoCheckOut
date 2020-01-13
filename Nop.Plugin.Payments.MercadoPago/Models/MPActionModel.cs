@@ -1,4 +1,4 @@
-﻿using Nop.Web.Framework.Models;
+﻿using Nop.Web.Framework.Mvc;
 
 namespace Nop.Plugin.Payments.MercadoPago.Models
 {

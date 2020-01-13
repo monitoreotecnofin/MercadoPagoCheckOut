@@ -1,0 +1,199 @@
+﻿@{
+    Layout = "";
+}
+@model Nop.Plugin.Payments.MercadoPago.Models.ConfigurationModel
+@using Nop.Web.Framework;
+@Html.Action("StoreScopeConfiguration", "Setting", new { area = "Admin" })
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        $("#@Html.FieldIdFor(model => model.EnableIpn)").click(toggleEnableIpn);
+        toggleEnableIpn();
+    });
+
+    function toggleEnableIpn() {
+        if ($('#@Html.FieldIdFor(model => model.EnableIpn)').is(':checked')) {
+            $('#pnlIpnUrl').show();
+        }
+        else {
+            $('#pnlIpnUrl').hide();
+        }
+    }
+</script>
+
+@using (Html.BeginForm())
+{
+    @Html.AntiForgeryToken()
+    <table class="adminContent">
+        <tr>
+            <td colspan="2">
+                <strong>Intrucciones:</strong>
+                <br />
+                <ol>
+                    <li>
+                        Da de alta tu usuario en Mercado Pago, obten tu client_id y client_secret de CheckOut Básico.
+                        <ul>
+                            <li style="display:inline;">&nbsp;<a href="https://www.mercadopago.com/mlm/account/credentials?type=basic">Mexico</a>&nbsp;</li>
+                            <li style="display:inline;">&nbsp;<a href="https://www.mercadopago.com/mla/account/credentials?type=basic">Argentina</a>&nbsp;</li>
+                            <li style="display:inline;">&nbsp;<a href="https://www.mercadopago.com/mlb/account/credentials?type=basic">Brazil</a>&nbsp;</li>
+                            <li style="display:inline;">&nbsp;<a href="https://www.mercadopago.com/mlc/account/credentials?type=basic">Chile</a>&nbsp;</li>
+                            <li style="display:inline;">&nbsp;<a href="https://www.mercadopago.com/mco/account/credentials?type=basic">Colombia</a>&nbsp;</li>
+                            <li style="display:inline;">&nbsp;<a href="https://www.mercadopago.com/mpe/account/credentials?type=basic">Peru</a>&nbsp;</li>
+                            <li style="display:inline;">&nbsp;<a href="https://www.mercadopago.com/mlv/account/credentials?type=basic">Venezuela</a>&nbsp;</li>
+                        </ul>
+                    </li>
+                    <li>Sí tu usuario es test en MercadoPago tambien el Vendedor de Test.</li>
+                    <li>Para recibir las notificaciones, activa el IPN y copia la URL que esta en URL IPN en Mercado Pago. <a href="https://www.mercadopago.com.mx/ipn-notifications">IPN Notificaciones</a></li>
+                    <li>No olvides que el IPN debe estar arctivo en ambos lados tanto en MercadoPago como en la tienda, de lo contrario no se recibiran las notificaciones de pago.</li>
+                    <li>Si no se activa el IPN en Mercado, reviza el log en NopCommerce y reviza el id del IPN, este lo configuras en ID de Test IPN </li>
+                    <li>
+                        Opciones de Pago, solo coloca el Id para "excluded_payment_methods" separado por ;
+                        <br />
+                        <text>@Html.Raw(ViewData["PaymentForms"])</text>
+                    </li>
+
+                </ol>
+            </td>
+        </tr>
+    </table>
+    <div class="panel-group">
+        <div class="panel panel-default">
+            <div class="panel-body">  
+                <div class="form-group">
+                        <div class="col-md-3">
+                            @Html.NopLabelFor(model => model.countryId)
+                        </div>
+                        <div class="col-md-9">
+                            @Html.DropDownList("countryId", Model.AvailableCountries)
+                            @Html.ValidationMessageFor(model => model.countryId)
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="col-md-3">
+                            @Html.OverrideStoreCheckboxFor(model => model.UseLog_OverrideForStore, model => model.UseLog, Model.ActiveStoreScopeConfiguration)
+                            @Html.NopLabelFor(model => model.UseLog)
+                        </div>
+                        <div class="col-md-9">
+                            @Html.EditorFor(model => model.UseLog)
+                            @Html.ValidationMessageFor(model => model.UseLog)
+                        </div>
+                    </div> 
+                         
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.client_id_OverrideForStore, model => model.client_id, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.client_id)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.EditorFor(model => model.client_id)
+                        @Html.ValidationMessageFor(model => model.client_id)
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.client_secret_OverrideForStore, model => model.client_secret, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.client_secret)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.EditorFor(model => model.client_secret)
+                        @Html.ValidationMessageFor(model => model.client_secret)
+                    </div>
+                </div>              
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.excluded_payment_methods_OverrideForStore, model => model.excluded_payment_methods, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.excluded_payment_methods)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.EditorFor(model => model.excluded_payment_methods)
+                        @Html.ValidationMessageFor(model => model.excluded_payment_methods)
+                    </div>
+                </div>                
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.AdditionalFee_OverrideForStore, model => model.AdditionalFee, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.AdditionalFee)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.EditorFor(model => model.AdditionalFee)
+                        @Html.ValidationMessageFor(model => model.AdditionalFee)
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.AdditionalFeePercentage_OverrideForStore, model => model.AdditionalFee, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.AdditionalFeePercentage)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.EditorFor(model => model.AdditionalFeePercentage)
+                        @Html.ValidationMessageFor(model => model.AdditionalFeePercentage)
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.AvailableDays_OverrideForStore, model => model.AvailableDays, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.AvailableDays)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.EditorFor(model => model.AvailableDays)
+                        @Html.ValidationMessageFor(model => model.AvailableDays)
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.ManejarTotal_OverrideForStore, model => model.ManejarTotal, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.ManejarTotal)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.EditorFor(model => model.ManejarTotal)
+                        @Html.ValidationMessageFor(model => model.ManejarTotal)
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.EnableIpn_OverrideForStore, model => model.EnableIpn, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.EnableIpn)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.EditorFor(model => model.EnableIpn)
+                        @Html.ValidationMessageFor(model => model.EnableIpn)
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.IpnUrl_OverrideForStore, model => model.IpnUrl, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.IpnUrl)                        
+                    </div>
+                    <div class="col-md-9">
+                        @Html.EditorFor(model => model.IpnUrl)
+                        @Html.ValidationMessageFor(model => model.IpnUrl)
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.IdTestIPN_OverrideForStore, model => model.IdTestIPN, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.IdTestIPN)                        
+                        <em>Revizar en log</em>
+                    </div>
+                    <div class="col-md-9">
+                        @Html.EditorFor(model => model.IdTestIPN)
+                        @Html.ValidationMessageFor(model => model.IdTestIPN)
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="col-md-3">
+                        &nbsp;
+                    </div>
+                    <div class="col-md-9">
+                        <input type="submit" name="save" class="btn bg-blue" value="@T("Admin.Common.Save")" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+                }
