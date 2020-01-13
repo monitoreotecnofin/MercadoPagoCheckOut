@@ -1,0 +1,195 @@
+﻿@model Nop.Plugin.Payments.MercadoPago.Models.ConfigurationModel
+@{
+    Layout = "_ConfigurePlugin";
+}
+
+@await Component.InvokeAsync("StoreScopeConfiguration")
+
+@*<script type="text/javascript">
+    $(document).ready(function () {
+        $("#@Html.FieldIdFor(model => model.EnableIpn)").click(toggleEnableIpn);
+        toggleEnableIpn();
+    });
+
+    function toggleEnableIpn() {
+        if ($('#@Html.FieldIdFor(model => model.EnableIpn)').is(':checked')) {
+            $('#pnlIpnUrl').show();
+        }
+        else {
+            $('#pnlIpnUrl').hide();
+        }
+    }
+</script>*@
+<form asp-controller="PaymentMercadoPago" asp-action="Configure" method="post">    
+    <div class="panel-group">
+        <div class="panel panel-default">
+            <div class="panel-body">
+                <p>
+                <table class="adminContent">
+                    <tr>
+                        <td colspan="2">
+                            <strong>Intrucciones:</strong>
+                            <br />
+                            <ol>
+                                <li>
+                                    Da de alta tu usuario en Mercado Pago, obten tu client_id y client_secret de CheckOut Básico.
+                                    <ul>
+                                        <li style="display:inline;">&nbsp;<a href="https://www.mercadopago.com/mlm/account/credentials?type=basic">Mexico</a>&nbsp;</li>
+                                        <li style="display:inline;">&nbsp;<a href="https://www.mercadopago.com/mla/account/credentials?type=basic">Argentina</a>&nbsp;</li>
+                                        <li style="display:inline;">&nbsp;<a href="https://www.mercadopago.com/mlb/account/credentials?type=basic">Brazil</a>&nbsp;</li>
+                                        <li style="display:inline;">&nbsp;<a href="https://www.mercadopago.com/mlc/account/credentials?type=basic">Chile</a>&nbsp;</li>
+                                        <li style="display:inline;">&nbsp;<a href="https://www.mercadopago.com/mco/account/credentials?type=basic">Colombia</a>&nbsp;</li>
+                                        <li style="display:inline;">&nbsp;<a href="https://www.mercadopago.com/mpe/account/credentials?type=basic">Peru</a>&nbsp;</li>
+                                        <li style="display:inline;">&nbsp;<a href="https://www.mercadopago.com/mlv/account/credentials?type=basic">Venezuela</a>&nbsp;</li>
+                                    </ul>
+                                </li>
+                                <li>Sí tu usuario es test en MercadoPago tambien el Vendedor de Test.</li>
+                                <li>Para recibir las notificaciones, activa el IPN y copia la URL que esta en URL IPN en Mercado Pago. <a href="https://www.mercadopago.com.mx/ipn-notifications">IPN Notificaciones</a></li>
+                                <li>No olvides que el IPN debe estar arctivo en ambos lados tanto en MercadoPago como en la tienda, de lo contrario no se recibiran las notificaciones de pago.</li>
+                                <li>Si no se activa el IPN en Mercado, reviza el log en NopCommerce y reviza el id del IPN, este lo configuras en ID de Test IPN </li>
+                                <li>
+                                    Opciones de Pago, solo coloca el Id para "excluded_payment_methods" separado por ;
+                                    <br />
+                                    <text>@Html.Raw(ViewData["PaymentForms"])</text>
+                                </li>
+
+                            </ol>
+                        </td>
+                    </tr>
+                </table>
+                </p>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        <nop-label asp-for="AvailableCountries" />
+                    </div>
+                    <div class="col-md-9">
+                        <nop-select asp-for="countryId" asp-items="Model.AvailableCountries" />
+                    </div>
+                </div>              
+                <div class="form-group">
+                    <div class="col-md-3">
+                        <nop-override-store-checkbox asp-for="UseLog_OverrideForStore" asp-input="UseLog" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                        <nop-label asp-for="UseLog" />
+                    </div>
+                    <div class="col-md-9">
+                        <nop-editor asp-for="UseLog" />
+                        <span asp-validation-for="UseLog"></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        <nop-override-store-checkbox asp-for="client_id_OverrideForStore" asp-input="client_id" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                        <nop-label asp-for="client_id" />
+                    </div>
+                    <div class="col-md-9">
+                        <nop-editor asp-for="client_id" />
+                        <span asp-validation-for="client_id"></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        <nop-override-store-checkbox asp-for="client_secret_OverrideForStore" asp-input="client_secret" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                        <nop-label asp-for="client_secret" />
+                    </div>
+                    <div class="col-md-9">
+                        <nop-editor asp-for="client_secret" />
+                        <span asp-validation-for="client_secret"></span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="col-md-3">
+                        <nop-override-store-checkbox asp-for="excluded_payment_methods_OverrideForStore" asp-input="excluded_payment_methods" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                        <nop-label asp-for="excluded_payment_methods" />
+                    </div>
+                    <div class="col-md-9">
+                        <nop-editor asp-for="excluded_payment_methods" />
+                        <span asp-validation-for="excluded_payment_methods"></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        <nop-override-store-checkbox asp-for="AdditionalFee_OverrideForStore" asp-input="AdditionalFee" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                        <nop-label asp-for="AdditionalFee" />
+                    </div>
+                    <div class="col-md-9">
+                        <nop-editor asp-for="AdditionalFee" />
+                        <span asp-validation-for="AdditionalFee"></span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="col-md-3">
+                        <nop-override-store-checkbox asp-for="AdditionalFeePercentage_OverrideForStore" asp-input="AdditionalFeePercentage" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                        <nop-label asp-for="AdditionalFeePercentage" />
+                    </div>
+                    <div class="col-md-9">
+                        <nop-editor asp-for="AdditionalFeePercentage" />
+                        <span asp-validation-for="AdditionalFeePercentage"></span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="col-md-3">
+                        <nop-override-store-checkbox asp-for="AvailableDays_OverrideForStore" asp-input="AvailableDays" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                        <nop-label asp-for="AvailableDays" />
+                    </div>
+                    <div class="col-md-9">
+                        <nop-editor asp-for="AvailableDays" />
+                        <span asp-validation-for="AvailableDays"></span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="col-md-3">
+                        <nop-override-store-checkbox asp-for="ManejarTotal_OverrideForStore" asp-input="ManejarTotal" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                        <nop-label asp-for="ManejarTotal" />
+                    </div>
+                    <div class="col-md-9">
+                        <nop-editor asp-for="ManejarTotal" />
+                        <span asp-validation-for="ManejarTotal"></span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="col-md-3">
+                        <nop-override-store-checkbox asp-for="EnableIpn_OverrideForStore" asp-input="EnableIpn" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                        <nop-label asp-for="EnableIpn" />
+                    </div>
+                    <div class="col-md-9">
+                        <nop-editor asp-for="EnableIpn" />
+                        <span asp-validation-for="EnableIpn"></span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="col-md-3">
+                        <nop-override-store-checkbox asp-for="IpnUrl_OverrideForStore" asp-input="IpnUrl" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                        <nop-label asp-for="IpnUrl" />
+                    </div>
+                    <div class="col-md-9">
+                        <nop-editor asp-for="IpnUrl" />
+                        <span asp-validation-for="IpnUrl"></span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="col-md-3">
+                        <nop-override-store-checkbox asp-for="IdTestIPN_OverrideForStore" asp-input="IdTestIPN" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                        <nop-label asp-for="IdTestIPN" />
+                    </div>
+                    <div class="col-md-9">
+                        <nop-editor asp-for="IdTestIPN" />
+                        <span asp-validation-for="IdTestIPN"></span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="col-md-9 col-md-offset-3">
+                        <input type="submit" name="save" class="btn bg-primary" value="@T("Admin.Common.Save")" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>

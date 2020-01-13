@@ -1,0 +1,10 @@
+﻿@{
+    Layout = "~/Views/Shared/_ColumnsOne.cshtml";
+}
+@model Nop.Plugin.Payments.MercadoPago.Models.GenericModel
+<strong>
+    @T("Plugins.Payments.MercadoPago.Fields.Failure")
+</strong>
+<p>
+    @T("Checkout.OrderNumber"): @Model.orderId
+</p>
