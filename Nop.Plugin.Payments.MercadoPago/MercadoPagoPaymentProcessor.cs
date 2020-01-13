@@ -2,11 +2,11 @@
 using Nop.Core;
 using Nop.Core.Domain.Orders;
 using Nop.Core.Domain.Payments;
+using Nop.Core.Plugins;
 using Nop.Services.Configuration;
 using Nop.Services.Localization;
 using Nop.Services.Orders;
 using Nop.Services.Payments;
-using Nop.Services.Plugins;
 using Nop.Web.Framework;
 using System;
 using System.Collections.Generic;
@@ -17,9 +17,9 @@ namespace Nop.Plugin.Payments.MercadoPago
     {
         #region Fields
         private readonly MercadoPagoPaymentSettings _mercadoPagoPaymentSettings;
-        private readonly ISettingService _settingService;
-        private readonly IWebHelper _webHelper;
-        private readonly IOrderTotalCalculationService _orderTotalCalculationService;
+        private readonly ISettingService _settingService;       
+        private readonly IWebHelper _webHelper;        
+        private readonly IOrderTotalCalculationService _orderTotalCalculationService;        
         private readonly ILocalizationService _localizationService;
         private readonly IPaymentService _paymentService;
         #endregion
@@ -36,7 +36,7 @@ namespace Nop.Plugin.Payments.MercadoPago
             this._settingService = settingService;
             this._webHelper = webHelper;
             this._paymentService = paymentService;
-            this._mercadoPagoPaymentSettings = mercadoPagoPaymentSettings;
+            this._mercadoPagoPaymentSettings = mercadoPagoPaymentSettings;            
         }
 
         #endregion
@@ -136,7 +136,7 @@ namespace Nop.Plugin.Payments.MercadoPago
         {
             return _paymentService.CalculateAdditionalFee(cart,
                _mercadoPagoPaymentSettings.AdditionalFee, _mercadoPagoPaymentSettings.AdditionalFeePercentage);
-
+           
         }
 
         public ProcessPaymentRequest GetPaymentInfo(IFormCollection form)
@@ -157,7 +157,7 @@ namespace Nop.Plugin.Payments.MercadoPago
         {
             return "PaymentMercadoPago";
         }
-
+        
         public bool HidePaymentMethod(IList<ShoppingCartItem> cart)
         {
             //you can put any logic here
@@ -308,7 +308,7 @@ namespace Nop.Plugin.Payments.MercadoPago
             base.Uninstall();
         }
 
-
+        
 
         #endregion
     }

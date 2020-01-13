@@ -1,32 +1,32 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Nop.Services.Logging;
+using mercadopago;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Nop.Core;
+using Nop.Core.Domain.Customers;
 using Nop.Core.Domain.Orders;
 using Nop.Core.Domain.Payments;
 using Nop.Plugin.Payments.MercadoPago.Models;
 using Nop.Services.Catalog;
-using Nop.Services.Common;
 using Nop.Services.Configuration;
 using Nop.Services.Localization;
 using Nop.Services.Media;
 using Nop.Services.Orders;
 using Nop.Services.Payments;
 using Nop.Services.Stores;
-using Nop.Web.Framework;
 using Nop.Web.Framework.Controllers;
-using Nop.Web.Framework.Mvc.Filters;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Text;
-using System.Text.RegularExpressions;
-using mercadopago;
-using System.Linq;
-using Nop.Core.Domain.Logging;
 using System.Globalization;
-using Nop.Core.Domain.Customers;
-using Nop.Services.Directory;
+using System.Linq;
+using System.Text;
+using Nop.Services.Common;
+using Nop.Web.Framework.Mvc.Filters;
+using Microsoft.Extensions.Logging;
+using Nop.Web.Framework;
+using System.Text.RegularExpressions;
 
 namespace Nop.Plugin.Payments.MercadoPago.Controllers
 {
@@ -47,7 +47,6 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
         private readonly ICategoryService _categoryService;
         private readonly ILocalizationService _localizationService;
         private readonly IGenericAttributeService _genericAttributeService;
-        private readonly ICurrencyService _currencyService;
         #region Ctor
         public PaymentMercadoPagoController(IWorkContext workContext,
             IStoreService storeService,
@@ -63,8 +62,7 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
             IPictureService pictureService,
             ICategoryService categoryService,
             ILocalizationService localizationService,
-            IGenericAttributeService genericAttributeService,
-            ICurrencyService currencyService)
+            IGenericAttributeService genericAttributeService)
         {
             this._workContext = workContext;
             this._storeService = storeService;
@@ -81,7 +79,6 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
             this._categoryService = categoryService;
             this._localizationService = localizationService;
             this._genericAttributeService = genericAttributeService;
-            this._currencyService = currencyService;
         }
 
         #endregion
@@ -165,7 +162,7 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
 
             //load settings for a chosen store scope
             var storeScope = _storeContext.ActiveStoreScopeConfiguration;
-            var mercadoPagoPaymentSettings = _settingService.LoadSetting<MercadoPagoPaymentSettings>(storeScope);
+            var mercadoPagoPaymentSettings = _settingService.LoadSetting<MercadoPagoPaymentSettings>(storeScope);            
 
             //save settings
             mercadoPagoPaymentSettings.countryId = model.countryId;
@@ -275,7 +272,6 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
             }
             catch (Exception e)
             {
-                _logger.Information(string.Format("Error mercado pago:{0}", e.Message + System.Environment.NewLine + e.InnerException));
                 orderId = 0;
             }
 
@@ -315,48 +311,23 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
                     {
                         category = defaultProductCategory.Category.Name;
                     }
-                    items += "{\"id\": \"" + item.Product.Sku + "\",\"title\": \"" + RemoveSpecialCharacters(item.Product.Name) + "\",\"currency_id\": \"" + countrySetting.Moneda + "\",\"picture_url\": \"" + urlPicture + "\",\"quantity\": " + item.Quantity.ToString() + ",\"unit_price\": " + string.Format(CultureInfo.InvariantCulture, "{0:0.00}", _currencyService.ConvertCurrency(item.UnitPriceInclTax, order.CurrencyRate)) + "},";
+                    items += "{\"id\": \"" + item.Product.Sku + "\",\"title\": \"" + RemoveSpecialCharacters(item.Product.Name) + "\",\"currency_id\": \"" + countrySetting.Moneda + "\",\"picture_url\": \"" + urlPicture + "\",\"quantity\": " + item.Quantity.ToString() + ",\"unit_price\": " + string.Format(CultureInfo.InvariantCulture, "{0:0.00}", item.UnitPriceInclTax) + "},";
                 }
                 if (order.OrderShippingInclTax > 0)
-                    items += "{\"id\": \"" + "Mensajeria" + "\",\"title\": \"" + "Envio especializado" + "\",\"currency_id\": \"" + countrySetting.Moneda + "\",\"quantity\": " + "1" + ",\"unit_price\": " + string.Format(CultureInfo.InvariantCulture, "{0:0.00}", _currencyService.ConvertCurrency(order.OrderShippingInclTax, order.CurrencyRate)) + "},";
+                    items += "{\"id\": \"" + "Mensajeria" + "\",\"title\": \"" + "Envio especializado" + "\",\"currency_id\": \"" + countrySetting.Moneda + "\",\"quantity\": " + "1" + ",\"unit_price\": " + string.Format(CultureInfo.InvariantCulture, "{0:0.00}", order.OrderShippingInclTax) + "},";
 
                 if (order.PaymentMethodAdditionalFeeInclTax > 0)
-                    items += "{\"id\": \"" + "MercadoPago" + "\",\"title\": \"" + "Forma de Pago" + "\",\"currency_id\": \"" + countrySetting.Moneda + "\",\"quantity\": " + "1" + ",\"unit_price\": " + string.Format(CultureInfo.InvariantCulture, "{0:0.00}", _currencyService.ConvertCurrency(order.PaymentMethodAdditionalFeeInclTax, order.CurrencyRate)) + "},";
+                    items += "{\"id\": \"" + "MercadoPago" + "\",\"title\": \"" + "Forma de Pago" + "\",\"currency_id\": \"" + countrySetting.Moneda + "\",\"quantity\": " + "1" + ",\"unit_price\": " + string.Format(CultureInfo.InvariantCulture, "{0:0.00}", order.PaymentMethodAdditionalFeeInclTax) + "},";
             }
             else
             {
-                items += "{\"id\": \"" + "MercadoPago" + "\",\"title\": \"" + _localizationService.GetLocaleStringResourceByName("Order.Order#") + " " + order.Id + "\",\"currency_id\": \"" + countrySetting.Moneda + "\",\"quantity\": " + "1" + ",\"unit_price\": " + string.Format(CultureInfo.InvariantCulture, "{0:0.00}", _currencyService.ConvertCurrency(order.OrderTotal, order.CurrencyRate)) + "},";
+                items += "{\"id\": \"" + "MercadoPago" + "\",\"title\": \"" + _localizationService.GetLocaleStringResourceByName("Order.Order#") + " " + order.Id + "\",\"currency_id\": \"" + countrySetting.Moneda + "\",\"quantity\": " + "1" + ",\"unit_price\": " + string.Format(CultureInfo.InvariantCulture, "{0:0.00}", order.OrderTotal) + "},";
             }
 
             items += "]";
 
-            var PayerEmail = "";
-            var PayerFirstName = "";
-            var PayerLastName = "";
-            var PayerPhone = "";
-
-            if (string.IsNullOrEmpty(order.Customer.Email))
-                PayerEmail = order.Customer.BillingAddress.Email;
-            else
-                PayerEmail = order.Customer.Email;
-
-            if (string.IsNullOrEmpty(_genericAttributeService.GetAttribute<string>(order.Customer, NopCustomerDefaults.FirstNameAttribute)))
-                PayerFirstName = order.Customer.BillingAddress.FirstName;
-            else
-                PayerFirstName = _genericAttributeService.GetAttribute<string>(order.Customer, NopCustomerDefaults.FirstNameAttribute);
-
-            if (string.IsNullOrEmpty(_genericAttributeService.GetAttribute<string>(order.Customer, NopCustomerDefaults.LastNameAttribute)))
-                PayerLastName = order.Customer.BillingAddress.LastName;
-            else
-                PayerLastName = _genericAttributeService.GetAttribute<string>(order.Customer, NopCustomerDefaults.LastNameAttribute);
-
-            if (string.IsNullOrEmpty(_genericAttributeService.GetAttribute<string>(order.Customer, NopCustomerDefaults.PhoneAttribute)))
-                PayerPhone = order.Customer.BillingAddress.PhoneNumber;
-            else
-                PayerPhone = _genericAttributeService.GetAttribute<string>(order.Customer, NopCustomerDefaults.PhoneAttribute);
-
             //string payer = "\"payer\": { \"name\": \"" + order.Customer.GetAttribute<string>(SystemCustomerAttributeNames.FirstName) + "\",\"surname\": \"" + order.Customer.GetAttribute<string>(SystemCustomerAttributeNames.LastName) + "\",\"email\": \"" + order.Customer.Email + "\",\"phone\": \"" + order.Customer.GetAttribute<string>(SystemCustomerAttributeNames.Phone) + "\",\"date_created\": \"" + order.Customer.CreatedOnUtc.ToString("yyyy-MM-ddTHH:mm:ssK") + "\"}";            
-            string payer = "\"payer\": { \"name\": \"" + PayerFirstName + "\",\"surname\": \"" + PayerLastName + "\",\"email\": \"" + PayerEmail + "\",\"date_created\": \"" + order.Customer.CreatedOnUtc.ToString("yyyy-MM-ddTHH:mm:ssK") + "\"}";
+            string payer = "\"payer\": { \"name\": \"" + _genericAttributeService.GetAttribute<string>(order.Customer, NopCustomerDefaults.FirstNameAttribute) + "\",\"surname\": \"" + _genericAttributeService.GetAttribute<string>(order.Customer, NopCustomerDefaults.LastNameAttribute) + "\",\"email\": \"" + order.Customer.Email + "\",\"date_created\": \"" + order.Customer.CreatedOnUtc.ToString("yyyy-MM-ddTHH:mm:ssK") + "\"}";            
             string urlSuccess = _webHelper.GetStoreLocation() + "Plugins/PaymentMercadoPago/Success/" + order.Id.ToString() + "/" + order.OrderGuid.ToString(); // Url.RouteUrl(new { Controller = "PaymentMercadoPago", Action = "Success", oId = order.Id, oG = order.OrderGuid });
             string urlFailure = _webHelper.GetStoreLocation() + "Plugins/PaymentMercadoPago/Failure/" + order.Id.ToString() + "/" + order.OrderGuid.ToString(); //Url.RouteUrl(new { Controller = "PaymentMercadoPago", Action = "Failure", oId = order.Id, oG = order.OrderGuid });
             string urlPending = _webHelper.GetStoreLocation() + "Plugins/PaymentMercadoPago/Pending/" + order.Id.ToString() + "/" + order.OrderGuid.ToString(); //Url.RouteUrl(new { Controller = "PaymentMercadoPago", Action = "Pending", oId = order.Id, oG = order.OrderGuid }); 
@@ -572,7 +543,7 @@ namespace Nop.Plugin.Payments.MercadoPago.Controllers
                 _logger.Information(string.Format("Data Id IPN mercado pago:{0}", id));
 
             if (id == "" || id == "12345")
-                return new OkResult();//return new HttpStatusCodeResult(HttpStatusCode.OK);
+                return new NotFoundResult();//return new HttpStatusCodeResult(HttpStatusCode.OK);
 
             if (HttpContext.Request.Query["topic"] == "payment" || HttpContext.Request.Query["type"] == "payment")
             {

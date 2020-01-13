@@ -1,14 +1,14 @@
-﻿
-using Microsoft.AspNetCore.Builder;
+﻿using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Nop.Web.Framework.Mvc.Routing;
+using System.Web;
 
 namespace Nop.Plugin.Payments.MercadoPago
 {
     public partial class RouteProvider : IRouteProvider
     {
         public void RegisterRoutes(IRouteBuilder routeBuilder)
-        {
+        {            
             routeBuilder.MapRoute("Plugin.Payments.MercadoPago.MPAction",
                  "Plugins/PaymentMercadoPago/MPAction",
                  new { controller = "PaymentMercadoPago", action = "MPAction" });
@@ -34,8 +34,8 @@ namespace Nop.Plugin.Payments.MercadoPago
             routeBuilder.MapRoute("Plugin.Payments.MercadoPago.Pending",
                 "Plugins/PaymentMercadoPago/Pending/{oId?}/{oG?}",
                 new { controller = "PaymentMercadoPago", action = "Pending" }); //,
-                                                                                //new { oId = @"\d+", oG = @"^(\{{0,1}([0-9a-fA-F]){8}-([0-9a-fA-F]){4}-([0-9a-fA-F]){4}-([0-9a-fA-F]){4}-([0-9a-fA-F]){12}\}{0,1})$" });
-
+                //new { oId = @"\d+", oG = @"^(\{{0,1}([0-9a-fA-F]){8}-([0-9a-fA-F]){4}-([0-9a-fA-F]){4}-([0-9a-fA-F]){4}-([0-9a-fA-F]){12}\}{0,1})$" });
+            
 
             //get countrysetting by country ID  (AJAX link)
             routeBuilder.MapRoute("GetCountrySettingByCountryId",

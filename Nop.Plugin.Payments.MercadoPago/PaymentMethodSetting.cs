@@ -1,5 +1,4 @@
-﻿
-namespace Nop.Plugin.Payments.MercadoPago
+﻿namespace Nop.Plugin.Payments.MercadoPago
 {
     public class PaymentMethodSetting
     {
